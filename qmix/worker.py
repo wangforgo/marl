@@ -40,7 +40,7 @@ class RolloutWorker:
         if self.args.epsilon_anneal_scale == 'epoch':
             if episode_num == 0:
                 epsilon = epsilon - self.anneal_epsilon if epsilon > self.min_epsilon else epsilon
-
+        score = 0
         while not terminated:
             # time.sleep(0.2)
             obs = self.env.get_obs()
@@ -68,7 +68,7 @@ class RolloutWorker:
                 # avail_actions.append(avail_action)
                 last_action[agent_id] = action_onehot
 
-            reward, terminated, _ = self.env.step(actions)
+            reward, terminated, score = self.env.step(actions)
             if step == self.args.max_episode_steps - 1:
                 terminated = 1
 
@@ -86,6 +86,8 @@ class RolloutWorker:
             #     time.sleep(1)
             if self.args.epsilon_anneal_scale == 'step':
                 epsilon = epsilon - self.anneal_epsilon if epsilon > self.min_epsilon else epsilon
+
+        print("score:", score)
         o.append(obs)
         s.append(state)
         o_next = o[1:]

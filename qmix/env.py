@@ -4,7 +4,7 @@ import numpy as np
 
 
 def qmix_args(args):
-    args.rnn_hidden_dim = 64
+    args.rnn_hidden_dim = 256
     args.two_hyper_layers = False
     args.qmix_hidden_dim = 32
     args.lr = 5e-4

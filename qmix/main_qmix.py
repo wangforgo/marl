@@ -10,7 +10,16 @@ from replay_buffer import ReplayBuffer
 args = get_common_args()
 args = qmix_args(args)
 
-env = RandomEnv(args)
+# env = RandomEnv(args)
+import cg_env
+env = cg_env.Game()
+args.num_actions = 9
+args.num_agents = 3
+args.state_space = len(env.get_state())
+args.obs_space = len(env.get_obs()[0])
+args.max_episode_steps = 10
+# args.rnn_hidden_dim = 452
+
 agents = Agents(args)
 worker = RolloutWorker(env, agents, args)
 buffer = ReplayBuffer(args)

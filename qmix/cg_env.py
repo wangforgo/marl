@@ -90,9 +90,8 @@ class Game:
 
         self.reset()
 
-
-
     def reset(self, *data):
+        data = [gen_static_data(self.n_home)]
         self.score = 0
         self.step_idx = 0
         self.home = np.zeros((self.n_home, 2), dtype=int)
@@ -171,31 +170,44 @@ class Game:
         assert len(actions) == self.n_home
         reward = 0
 
-        tgts = self.home + actions
-        for i in range(len(tgts)):
-            if not is_pos_legal(tgts[i]) or self.mp[pos_2_int(tgts[i])] == MP.Mountain:
-                tgts[i] = self.home[i]
-                reward -= 100
-        no_conflict_tgts = move_one_step([self.home, tgts])
+        actions_dp = self.get_avail_actions()
+        d_actions = []
+        for a in actions:
+            d_actions.append(actions_dp[a])
 
+        tgts = self.home + d_actions
+        for i in range(len(tgts)):
+            if not is_pos_legal(tgts[i]) or self.mp[pos_2_int(tgts[i])] == MP.Mountain or self.mp[pos_2_int(tgts[i])] == MP.Away:
+                tgts[i] = self.home[i]
+                return -100, True, self.score  # 禁止非法操作
+        no_conflict_tgts = move_one_step([self.home, tgts])
+        if no_conflict_tgts is None:
+            return -100, True, self.score
         # 移动和计算
         for i in range(self.n_home):
             self.mp[pos_2_int(self.home[i])] = MP.Space
             self.mp[pos_2_int(no_conflict_tgts[i])] = MP.Home
             self.home[i] = no_conflict_tgts[i]
+
+            min_dist = W
             for j in range(len(self.away)):
                 e = self.away[j]
-                if dist_pos(e, self.home[i]) > 1:
-                    continue
                 if (e[0] * W + e[1]) in self.att_record[i]:
+                    continue
+                dist = dist_pos(e, self.home[i])
+                if dist < min_dist:
+                    min_dist = dist
+                if dist > 1:
                     continue
                 self.att_record[i][e[0] * W + e[1]] = True
                 self.away_hurt[j] += 1
-                reward += 1
+                reward += 10
+                self.score += 1
+            reward += 10 - min_dist/W*10
         self.render()
         self.step_idx += 1
         terminated = self.step_idx == 10
-        return reward, terminated
+        return reward, terminated, self.score
 
 
     def get_avail_actions(self):
@@ -211,23 +223,27 @@ class Game:
         return state
 
     def get_obs(self):
+        sibs = get_siblings(1, False)
         ob_mp_list = []
         for i in range(self.n_home):
             p = self.home[i]
-            sibs = get_siblings(10, False)
-            ob_mp = []
-            for s in sibs:
-                tp = s + p
+            ob_walkable = np.zeros(len(sibs), dtype=int)
+            ob_home = np.zeros(len(sibs), dtype=int)
+            ob_away = np.zeros(len(sibs), dtype=int)
+            for j in range(len(sibs)):
+                tp = sibs[j] + p
                 tp_int = pos_2_int(tp)
                 if not is_pos_legal(tp):
-                    ob_mp.append(MP.Mountain)
                     continue
-                if self.mp[tp_int] == MP.Away and tp_int in self.att_record[i]:
-                    ob_mp.append(MP.OB_Away_Done)
-                else:
-                    ob_mp.append(self.mp[tp_int])
-
-            ob_mp_list.append(ob_mp)
+                v = self.mp[tp_int]
+                if v == MP.Space:
+                    ob_walkable[j] = 1
+                elif v == MP.Home:
+                    ob_home[j] = 1
+                elif v == MP.Away:
+                    if tp_int not in self.att_record[i]:
+                        ob_away[j] = 1
+            ob_mp_list.append(ob_walkable+ob_home+ob_away)
 
         return ob_mp_list
 
@@ -245,6 +261,7 @@ def move_one_step(actions):
             else:
                 tgt_mp[p_int].append(i)
                 has_conflict = True
+                return None
         if not has_conflict:
             break
         for k in tgt_mp:
@@ -256,16 +273,16 @@ def move_one_step(actions):
     return target
 
 
-game = Game()
-game.reset(gen_static_data(game.n_home))
-time.sleep(1)
-for i in range(10):
-    print(game.away_hurt)
-    actions = []
-    for j in range(game.n_home):
-        x = random.randint(0, len(game.get_avail_actions()) - 1)
-        actions.append(game.get_avail_actions()[x])
-
-    game.step(actions)
+# game = Game()
+# game.reset(gen_static_data(game.n_home))
+# time.sleep(1)
+# for i in range(10):
+#     print(game.away_hurt)
+#     actions = []
+#     for j in range(game.n_home):
+#         x = random.randint(0, len(game.get_avail_actions()) - 1)
+#         actions.append(game.get_avail_actions()[x])
+#
+#     game.step(actions)
 # print(move_one_step([[[0, 0], [1, 1], [2,2]],
 #                      [[1, 0], [1, 0],[1,1]]]))
